@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Xml;
@@ -110,22 +110,58 @@ namespace Inedo.BuildMasterExtensions.DotNet2.Recipes
                 }
             }
 
-            int getSourcePlanId = this.CreatePlan(null, this.WorkflowSteps[0], "Get Source", "Applies a label to the files in Source Control and gets a copy of the label.");
-            AddAction(getSourcePlanId, Util.Recipes.Munging.MungeCoreExAction(
-                "Inedo.BuildMaster.Extensibility.Actions.SourceControl.ApplyLabelAction", new
-                {
-                    SourcePath = this.SolutionPath,
-                    UserDefinedLabel = "%RELNO%.%BLDNO%",
-                    ProviderId = this.ScmProviderId
-                }));
-            AddAction(getSourcePlanId, Util.Recipes.Munging.MungeCoreExAction(
-                "Inedo.BuildMaster.Extensibility.Actions.SourceControl.GetLabeledAction", new
-                {
-                    SourcePath = this.SolutionPath,
-                    UserDefinedLabel = "%RELNO%.%BLDNO%",
-                    ProviderId = this.ScmProviderId,
-                    OverriddenTargetDirectory = @"~\Src"
-                }));
+            int getSourcePlanId;
+            var provider = (SourceControlProviderBase)Util.Providers.CreateProviderFromId(this.ScmProviderId);
+            var dchar = provider.DirectorySeparator;
+            if (provider is IVersioningProvider)
+            {
+                getSourcePlanId = this.CreatePlan(null, this.WorkflowSteps[0], "Get Source", "Applies a label to the files in Source Control and gets a copy of the label.");
+                AddAction(getSourcePlanId, Util.Recipes.Munging.MungeCoreExAction(
+                    "Inedo.BuildMaster.Extensibility.Actions.SourceControl.ApplyLabelAction", new
+                    {
+                        SourcePath = this.SolutionPath,
+                        UserDefinedLabel = "%RELNO%.%BLDNO%",
+                        ProviderId = this.ScmProviderId
+                    }));
+                AddAction(getSourcePlanId, Util.Recipes.Munging.MungeCoreExAction(
+                    "Inedo.BuildMaster.Extensibility.Actions.SourceControl.GetLabeledAction", new
+                    {
+                        SourcePath = this.SolutionPath,
+                        UserDefinedLabel = "%RELNO%.%BLDNO%",
+                        ProviderId = this.ScmProviderId,
+                        OverriddenTargetDirectory = @"~\Src"
+                    }));
+            }
+            else if (this.SolutionPath.StartsWith(dchar + "trunk" + dchar, StringComparison.OrdinalIgnoreCase) && provider is IBranchingProvider)
+            {
+                getSourcePlanId = this.CreatePlan(null, this.WorkflowSteps[0], "Get Source", "Tags the files in Source Control and gets the latest by tag.");
+                AddAction(getSourcePlanId, Util.Recipes.Munging.MungeCoreExAction(
+                    "Inedo.BuildMaster.Extensibility.Actions.SourceControl.BranchAction", new
+                    {
+                        SourcePath = this.SolutionPath,
+                        TargetPath = dchar + "tags" + dchar + this.SolutionPath.Substring((dchar + "trunk" + dchar).Length).TrimEnd(dchar) + dchar + "%RELNO%.%BLDNO%",
+                        ProviderId = this.ScmProviderId,
+                        Comment = "Tagged by BuildMaster"
+                    }));
+                AddAction(getSourcePlanId, Util.Recipes.Munging.MungeCoreExAction(
+                    "Inedo.BuildMaster.Extensibility.Actions.SourceControl.GetLatestAction", new
+                    {
+                        SourcePath = dchar + "tags" + dchar + this.SolutionPath.Substring((dchar + "trunk" + dchar).Length).TrimEnd(dchar) + dchar + "%RELNO%.%BLDNO%",
+                        ProviderId = this.ScmProviderId,
+                        OverriddenTargetDirectory = @"~\Src"
+                    }));
+            }
+            else
+            {
+                getSourcePlanId = this.CreatePlan(null, this.WorkflowSteps[0], "Get Source", "Gets the latest from the source control root.");
+                AddAction(getSourcePlanId, Util.Recipes.Munging.MungeCoreExAction(
+                    "Inedo.BuildMaster.Extensibility.Actions.SourceControl.GetLatestAction", new
+                    {
+                        SourcePath = this.SolutionPath,
+                        ProviderId = this.ScmProviderId,
+                        OverriddenTargetDirectory = @"~\Src"
+                    }));
+            }
             AddAction(getSourcePlanId, new WriteAssemblyInfoVersionsAction
             {
                 OverriddenSourceDirectory = @"~\Src",
