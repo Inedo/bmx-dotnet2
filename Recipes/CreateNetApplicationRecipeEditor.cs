@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Web.UI;
@@ -72,7 +72,8 @@ namespace Inedo.BuildMasterExtensions.DotNet2.Recipes
 
             var ctlProjectPath = new SourceControlFileFolderPicker { DisplayMode = SourceControlBrowser.DisplayModes.FoldersAndFiles };
 
-            var ffProjectPath = new StandardFormField("Path of solution or project:", ctlProjectPath) { Visible = false };
+            var ffProjectPath = new StandardFormField("Path of solution or project file (.sln, .csproj, .vbproj, etc):", ctlProjectPath) { Visible = false };
+            var ctlProjectMessage = new InfoBox();
 
             ddlProvider.SelectedIndexChanged +=
                 (s, e) =>
@@ -168,6 +169,7 @@ namespace Inedo.BuildMasterExtensions.DotNet2.Recipes
             };
 
             this.wizardSteps.SelectProjectsInSolution.Controls.Add(
+                ctlProjectMessage,
                 new FormFieldGroup(
                     "Projects",
                     "Select the projects in the solution that you would like to create deployables for.",
@@ -183,20 +185,29 @@ namespace Inedo.BuildMasterExtensions.DotNet2.Recipes
             {
                 if (e.CurrentStep != this.wizardSteps.SelectProjectsInSolution)
                     return;
-                using(var connection = Util.Providers.ConnectToProvider<SourceControlProviderBase>(this.ProviderId))
+                try
                 {
-                    var dirSeparator = ((SourceControlProviderBase)connection).DirectorySeparator;
-
-                    if (ctlProjectPath.Text.EndsWith(".sln", StringComparison.OrdinalIgnoreCase))
+                    using (var connection = Util.Providers.ConnectToProvider<SourceControlProviderBase>(this.ProviderId))
                     {
-                        this.Projects = ctlProjectsInSolution.Items
-                            .Cast<ListItem>()
-                            .Where(i => i.Selected)
-                            .Select(i => new ProjectInfo(dirSeparator, i.Value.Replace('\\', dirSeparator)))
-                            .ToArray();
-                    }
+                        var dirSeparator = ((SourceControlProviderBase)connection).DirectorySeparator;
 
-                    ParseProjects(ctlConfigFiles, ctlNoConfigFiles, connection);
+                        if (ctlProjectPath.Text.EndsWith(".sln", StringComparison.OrdinalIgnoreCase))
+                        {
+                            this.Projects = ctlProjectsInSolution.Items
+                                .Cast<ListItem>()
+                                .Where(i => i.Selected)
+                                .Select(i => new ProjectInfo(dirSeparator, i.Value.Replace('\\', dirSeparator)))
+                                .ToArray();
+                        }
+
+                        ParseProjects(ctlConfigFiles, ctlNoConfigFiles, connection);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    ctlProjectMessage.BoxType = InfoBox.InfoBoxTypes.Error;
+                    ctlProjectMessage.Controls.AddLiteral("An error occurred trying to read '{0}' as a file: {1)", ctlProjectPath.Text, ex.Message);
+                    ctlProjectPath.Visible = true;
                 }
             };
 
