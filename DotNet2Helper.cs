@@ -103,8 +103,8 @@ namespace Inedo.BuildMasterExtensions.DotNet2
                 }
                 catch (Exception ex)
                 {
-                    Tracer.Error(ex.ToString());
-                    throw new Exception("Web Application Targets are unavailable.");
+                    Logger.Error(ex.ToString());
+                    throw new Exception("Web Application Targets are unavailable.", ex);
                 }
             }
         }
