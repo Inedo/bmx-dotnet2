@@ -3,6 +3,8 @@ bmx-dotnet2
 
 .NET BuildMaster extension
 
+Note that this extension has been deprecated as of BuildMaster v4, and merged into the "WindowsSDK" Extension, located at http://github.com/inedo/bmx-windowssdk
+
 
 **License**
 
